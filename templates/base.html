@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MLB Scores App{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/mlb_mlb_logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_guide.css') }}">
+    <style>
+        .score-app-top-nav {
+            height: 54px;
+            padding: 0 16px;
+            border-bottom-width: 1px;
+        }
+
+        .score-app-top-nav .nav-logo {
+            gap: 8px;
+            margin-right: 0;
+        }
+
+        .score-app-top-nav .nav-logo img {
+            height: 30px;
+        }
+
+        .score-app-top-nav .nav-logo h1 {
+            font-size: 17px;
+            letter-spacing: 0;
+        }
+
+        .main-container {
+            margin-top: 62px;
+            padding: 6px 16px 20px;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="top-nav score-app-top-nav" role="banner">
+        <div class="nav-logo">
+            <img src="{{ url_for('static', filename='images/MLB-Logo.png') }}" alt="MLB logo">
+            <h1>MLB Live Scores</h1>
+        </div>
+    </header>
+
+    <div class="main-container">
+        {% block content %}{% endblock %}
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
