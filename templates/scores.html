@@ -664,6 +664,12 @@
         background: rgba(100, 116, 139, 0.15);
     }
 
+    .score-state.is-postponed {
+        color: #f87171;
+        border-color: rgba(248, 113, 113, 0.45);
+        background: rgba(185, 28, 28, 0.18);
+    }
+
     .red-zone-pill {
         font-size: 10px;
         font-weight: 700;
@@ -2753,6 +2759,7 @@
         const delayed = Number(counts?.delayed || 0);
         const pregame = Number(counts?.pregame || 0);
         const scheduled = Number(counts?.scheduled || 0);
+        const postponed = Number(counts?.postponed || 0);
         const finalGames = Number(counts?.final || 0);
         const total = Number(totalGames || 0);
 
@@ -2762,6 +2769,7 @@
             delayed > 0 ? `<span class="scores-pill">Delayed: ${delayed}</span>` : '',
             pregame > 0 ? `<span class="scores-pill">Pre-Game: ${pregame}</span>` : '',
             scheduled > 0 ? `<span class="scores-pill">Scheduled: ${scheduled}</span>` : '',
+            postponed > 0 ? `<span class="scores-pill">Postponed: ${postponed}</span>` : '',
             `<span class="scores-pill">Final: ${finalGames}</span>`,
         ].filter(Boolean).join('');
     }
@@ -2847,6 +2855,8 @@
             stateClass = 'is-delayed';
         } else if (stateLower === 'scheduled') {
             stateClass = 'is-scheduled';
+        } else if (stateLower === 'postponed') {
+            stateClass = 'is-postponed';
         }
 
         const awayScoreDisplay = hideScores ? '-' : awayRuns;
@@ -2903,7 +2913,7 @@
         const inningHeaderCells = inningNumbers.map((inningNum) => `<th>${inningNum}</th>`).join('');
 
         function hasInningSideStarted(side, inningNum) {
-            if (gameStateLower === 'pre-game' || gameStateLower === 'scheduled') {
+            if (gameStateLower === 'pre-game' || gameStateLower === 'scheduled' || gameStateLower === 'postponed') {
                 return false;
             }
 
@@ -3084,8 +3094,6 @@
                     </div>
                 </div>
 
-                <div class="score-context">${escapeHtml(scoreContextText)}</div>
-
                 <div class="inning-box-wrap" aria-label="Inning-by-inning box score">
                     <table class="${inningBoxClass}">
                         ${boxColGroup}
@@ -3255,7 +3263,7 @@
             renderWarning(payload.warning || null);
             updatedAt.textContent = `Updated: ${payload.generated_at_et || 'N/A'}`;
         } catch (error) {
-            renderSummary({live: 0, delayed: 0, pregame: 0, scheduled: 0, final: 0}, 0);
+            renderSummary({live: 0, delayed: 0, pregame: 0, scheduled: 0, postponed: 0, final: 0}, 0);
             renderGames([]);
             lastFeedEntries = [];
             renderWarning(error.message || 'Unable to load score data right now.');

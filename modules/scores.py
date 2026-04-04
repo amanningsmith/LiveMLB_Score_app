@@ -309,13 +309,19 @@ def _normalize_state(status_obj):
     state_code = (status_obj.get('statusCode') or '').strip()
 
     detailed_lower = detailed_state.lower()
+    is_postponed = 'postponed' in detailed_lower or state_code == 'PO'
     is_delayed = (
-        state_code in _DELAY_STATUS_CODES
-        or 'delay' in detailed_lower
-        or 'suspended' in detailed_lower
+        not is_postponed
+        and (
+            state_code in _DELAY_STATUS_CODES
+            or 'delay' in detailed_lower
+            or 'suspended' in detailed_lower
+        )
     )
 
-    if is_delayed:
+    if is_postponed:
+        state = 'Postponed'
+    elif is_delayed:
         state = 'Delayed'
     else:
         state_lower = abstract_state.lower()
@@ -484,7 +490,7 @@ def _fetch_live_at_bat_meta(game_pk, current_pitcher_id=None):
 
 def _build_game_link(game_pk, state):
     base = f'https://www.mlb.com/gameday/{game_pk}'
-    if state in ('Pre-Game', 'Scheduled'):
+    if state in ('Pre-Game', 'Scheduled', 'Postponed'):
         return f'{base}/preview'
     return base
 
@@ -597,7 +603,7 @@ def _normalize_games(schedule_payload):
             '_sort_outs': _to_int(linescore.get('outs'), 0),
         }
 
-        if state_data['state'] in ('Pre-Game', 'Scheduled'):
+        if state_data['state'] in ('Pre-Game', 'Scheduled', 'Postponed'):
             item['ticker_display'] = f"{item['away']['abbr']} at {item['home']['abbr']} | {start_time_et} | {state_data['state']}"
         else:
             item['ticker_display'] = (
@@ -631,7 +637,10 @@ def _normalize_games(schedule_payload):
         if state == 'Scheduled':
             return (3, start_dt, game_pk)
 
-        return (4, start_dt, game_pk)
+        if state == 'Postponed':
+            return (4, start_dt, game_pk)
+
+        return (5, start_dt, game_pk)
 
     normalized.sort(key=_game_sort_key)
 
@@ -719,6 +728,7 @@ def get_dashboard_payload(date_str=None):
                 'delayed': sum(1 for game in games if game.get('state') == 'Delayed'),
                 'pregame': sum(1 for game in games if game.get('state') == 'Pre-Game'),
                 'scheduled': sum(1 for game in games if game.get('state') == 'Scheduled'),
+                'postponed': sum(1 for game in games if game.get('state') == 'Postponed'),
                 'final': sum(1 for game in games if game.get('state') == 'Final'),
             },
         }
@@ -739,7 +749,7 @@ def get_dashboard_payload(date_str=None):
             'warning': 'Live scores unavailable right now. Please try again.',
             'games': [],
             'total_games': 0,
-            'counts': {'live': 0, 'delayed': 0, 'pregame': 0, 'scheduled': 0, 'final': 0},
+            'counts': {'live': 0, 'delayed': 0, 'pregame': 0, 'scheduled': 0, 'postponed': 0, 'final': 0},
         }
 
 
