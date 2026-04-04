@@ -300,18 +300,31 @@ def _build_team_roster_url(team_obj):
     return None
 
 
+_DELAY_STATUS_CODES = frozenset({'DR', 'DU', 'DO'})
+
+
 def _normalize_state(status_obj):
     abstract_state = (status_obj.get('abstractGameState') or '').strip()
     detailed_state = (status_obj.get('detailedState') or '').strip()
     state_code = (status_obj.get('statusCode') or '').strip()
 
-    state_lower = abstract_state.lower()
-    if state_lower == 'live':
-        state = 'Live'
-    elif state_lower == 'final':
-        state = 'Final'
+    detailed_lower = detailed_state.lower()
+    is_delayed = (
+        state_code in _DELAY_STATUS_CODES
+        or 'delay' in detailed_lower
+        or 'suspended' in detailed_lower
+    )
+
+    if is_delayed:
+        state = 'Delayed'
     else:
-        state = 'Pre-Game'
+        state_lower = abstract_state.lower()
+        if state_lower == 'live':
+            state = 'Live'
+        elif state_lower == 'final':
+            state = 'Final'
+        else:
+            state = 'Pre-Game'
 
     return {
         'state': state,
@@ -471,7 +484,7 @@ def _fetch_live_at_bat_meta(game_pk, current_pitcher_id=None):
 
 def _build_game_link(game_pk, state):
     base = f'https://www.mlb.com/gameday/{game_pk}'
-    if state == 'Pre-Game':
+    if state in ('Pre-Game', 'Scheduled'):
         return f'{base}/preview'
     return base
 
@@ -493,6 +506,15 @@ def _normalize_games(schedule_payload):
         home_team_id = _to_int(home_team.get('id'), None)
 
         state_data = _normalize_state(game.get('status') or {})
+
+        # Refine Pre-Game → Scheduled for games more than 30 minutes away
+        if state_data['state'] == 'Pre-Game':
+            game_dt = _parse_game_datetime_et(game.get('gameDate'))
+            if game_dt is not None:
+                minutes_until = (game_dt - datetime.now(ET_TIMEZONE)).total_seconds() / 60
+                if minutes_until > 30:
+                    state_data = {**state_data, 'state': 'Scheduled'}
+
         line_data = _build_line_score(game)
         game_pk = game.get('gamePk')
 
@@ -575,7 +597,7 @@ def _normalize_games(schedule_payload):
             '_sort_outs': _to_int(linescore.get('outs'), 0),
         }
 
-        if state_data['state'] == 'Pre-Game':
+        if state_data['state'] in ('Pre-Game', 'Scheduled'):
             item['ticker_display'] = f"{item['away']['abbr']} at {item['home']['abbr']} | {start_time_et} | {state_data['state']}"
         else:
             item['ticker_display'] = (
@@ -600,10 +622,16 @@ def _normalize_games(schedule_payload):
             half_rank = 1 if inning_half == 'bottom' else 0
             return (0, -inning, -half_rank, -outs, start_dt, game_pk)
 
-        if state == 'Pre-Game':
+        if state == 'Delayed':
             return (1, start_dt, game_pk)
 
-        return (2, start_dt, game_pk)
+        if state == 'Pre-Game':
+            return (2, start_dt, game_pk)
+
+        if state == 'Scheduled':
+            return (3, start_dt, game_pk)
+
+        return (4, start_dt, game_pk)
 
     normalized.sort(key=_game_sort_key)
 
@@ -688,7 +716,9 @@ def get_dashboard_payload(date_str=None):
             'total_games': len(games),
             'counts': {
                 'live': sum(1 for game in games if game.get('state') == 'Live'),
+                'delayed': sum(1 for game in games if game.get('state') == 'Delayed'),
                 'pregame': sum(1 for game in games if game.get('state') == 'Pre-Game'),
+                'scheduled': sum(1 for game in games if game.get('state') == 'Scheduled'),
                 'final': sum(1 for game in games if game.get('state') == 'Final'),
             },
         }
@@ -709,7 +739,7 @@ def get_dashboard_payload(date_str=None):
             'warning': 'Live scores unavailable right now. Please try again.',
             'games': [],
             'total_games': 0,
-            'counts': {'live': 0, 'pregame': 0, 'final': 0},
+            'counts': {'live': 0, 'delayed': 0, 'pregame': 0, 'scheduled': 0, 'final': 0},
         }
 
 

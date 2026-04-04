@@ -652,6 +652,18 @@
         background: rgba(217, 119, 6, 0.18);
     }
 
+    .score-state.is-delayed {
+        color: #fbbf24;
+        border-color: rgba(251, 191, 36, 0.50);
+        background: rgba(180, 83, 9, 0.22);
+    }
+
+    .score-state.is-scheduled {
+        color: #94a3b8;
+        border-color: rgba(148, 163, 184, 0.35);
+        background: rgba(100, 116, 139, 0.15);
+    }
+
     .red-zone-pill {
         font-size: 10px;
         font-weight: 700;
@@ -2738,16 +2750,20 @@
 
     function renderSummary(counts, totalGames) {
         const live = Number(counts?.live || 0);
+        const delayed = Number(counts?.delayed || 0);
         const pregame = Number(counts?.pregame || 0);
+        const scheduled = Number(counts?.scheduled || 0);
         const finalGames = Number(counts?.final || 0);
         const total = Number(totalGames || 0);
 
         summaryEl.innerHTML = [
             `<span class="scores-pill">Total: ${total}</span>`,
             `<span class="scores-pill">Live: ${live}</span>`,
-            `<span class="scores-pill">Pre-Game: ${pregame}</span>`,
+            delayed > 0 ? `<span class="scores-pill">Delayed: ${delayed}</span>` : '',
+            pregame > 0 ? `<span class="scores-pill">Pre-Game: ${pregame}</span>` : '',
+            scheduled > 0 ? `<span class="scores-pill">Scheduled: ${scheduled}</span>` : '',
             `<span class="scores-pill">Final: ${finalGames}</span>`,
-        ].join('');
+        ].filter(Boolean).join('');
     }
 
     function readFavoriteTeamIds() {
@@ -2827,6 +2843,10 @@
             stateClass = 'is-pregame';
         } else if (stateLower === 'final') {
             stateClass = 'is-final';
+        } else if (stateLower === 'delayed') {
+            stateClass = 'is-delayed';
+        } else if (stateLower === 'scheduled') {
+            stateClass = 'is-scheduled';
         }
 
         const awayScoreDisplay = hideScores ? '-' : awayRuns;
@@ -2883,7 +2903,7 @@
         const inningHeaderCells = inningNumbers.map((inningNum) => `<th>${inningNum}</th>`).join('');
 
         function hasInningSideStarted(side, inningNum) {
-            if (gameStateLower === 'pre-game') {
+            if (gameStateLower === 'pre-game' || gameStateLower === 'scheduled') {
                 return false;
             }
 
@@ -2944,7 +2964,9 @@
         const homeErrorsTotal = hideScores ? '-' : homeErrors;
         const scoreContextText = stateLower === 'live'
             ? (game?.detailed_state || '')
-            : (game?.live_context || game?.detailed_state || '');
+            : stateLower === 'delayed'
+                ? [game?.detailed_state, game?.live_context].filter(Boolean).join(' \u2014 ')
+                : (game?.live_context || game?.detailed_state || '');
 
         // Bottom info section differs by game state
         let pitcherInfoHtml = '';
@@ -2958,7 +2980,7 @@
                     <div class="decision-row"><span class="decision-label decision-loss">L</span> ${loserName}</div>
                     ${saveName ? `<div class="decision-row"><span class="decision-label decision-save">SV</span> ${saveName}</div>` : ''}
                 </div>`;
-        } else if (stateLower === 'live') {
+        } else if (stateLower === 'live' || stateLower === 'delayed') {
             const pitcherName = escapeHtml(game?.current_pitcher || '\u2014');
             const batterName  = escapeHtml(game?.current_batter  || '\u2014');
             const r1 = game?.runner_on_first  ? 'has-runner' : '';
@@ -3204,7 +3226,10 @@
     }
 
     function nextPollMs() {
-        const hasLive = (lastGames || []).some((g) => String(g?.state || '').toLowerCase() === 'live');
+        const hasLive = (lastGames || []).some((g) => {
+            const s = String(g?.state || '').toLowerCase();
+            return s === 'live' || s === 'delayed';
+        });
         return hasLive ? POLL_LIVE_MS : POLL_IDLE_MS;
     }
 
@@ -3230,7 +3255,7 @@
             renderWarning(payload.warning || null);
             updatedAt.textContent = `Updated: ${payload.generated_at_et || 'N/A'}`;
         } catch (error) {
-            renderSummary({live: 0, pregame: 0, final: 0}, 0);
+            renderSummary({live: 0, delayed: 0, pregame: 0, scheduled: 0, final: 0}, 0);
             renderGames([]);
             lastFeedEntries = [];
             renderWarning(error.message || 'Unable to load score data right now.');
