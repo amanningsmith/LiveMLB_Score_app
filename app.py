@@ -7,6 +7,32 @@ from modules.logger import logger
 from modules import scores
 
 app = Flask(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@app.before_request
+def debug_headers():
+    try:
+        total_size = sum(len(k) + len(v) for k, v in request.headers.items())
+        logger.info(f"=== REQUEST DEBUG ===")
+        logger.info(f"Total header size: {total_size} bytes")
+        logger.info(f"Number of headers: {len(request.headers)}")
+        
+        # Log each header size
+        for key, value in request.headers.items():
+            if len(value) > 100:  # Only log large headers
+                logger.info(f"Large header - {key}: {len(value)} bytes")
+        
+        # Check cookies
+        if request.cookies:
+            cookie_size = sum(len(k) + len(v) for k, v in request.cookies.items())
+            logger.info(f"Cookie size: {cookie_size} bytes")
+            logger.info(f"Number of cookies: {len(request.cookies)}")
+    except Exception as e:
+        logger.error(f"Error in debug_headers: {e}")
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['DEBUG'] = DEBUG
 
@@ -19,14 +45,6 @@ def home():
 @app.route('/scores')
 def scores_dashboard():
     return render_template('scores.html', default_date=scores.get_et_today_date_str())
-
-@app.before_request
-def log_request_info():
-    total_size = sum(len(k) + len(v) for k, v in request.headers.items())
-    app.logger.info(f"Total header size: {total_size} bytes")
-    if total_size > 8000:
-        for key, value in request.headers.items():
-            app.logger.info(f"{key}: {len(value)} bytes")
 
 @app.route('/api/scores/ticker', methods=['GET'])
 def scores_ticker_api():
