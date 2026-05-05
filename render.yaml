@@ -9,3 +9,5 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: GUNICORN_CMD_ARGS
+        value: "--limit-request-field_size=16384 --limit-request-fields=200"
