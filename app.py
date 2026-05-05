@@ -68,7 +68,7 @@ def run_schedule():
         time.sleep(30)
 
 
-@app.before_first_request
+@app.before_serving
 def start_background_tasks():
     fetch_mlb_scores()  # Initial fetch on startup
     scheduler_thread = threading.Thread(target=run_schedule, daemon=True)
