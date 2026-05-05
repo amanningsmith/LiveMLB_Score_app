@@ -26,24 +26,8 @@ score_data = {
 
 @app.before_request
 def debug_headers():
-    try:
-        total_size = sum(len(k) + len(v) for k, v in request.headers.items())
-        logger.info(f"=== REQUEST DEBUG ===")
-        logger.info(f"Total header size: {total_size} bytes")
-        logger.info(f"Number of headers: {len(request.headers)}")
-        
-        # Log each header size
-        for key, value in request.headers.items():
-            if len(value) > 100:  # Only log large headers
-                logger.info(f"Large header - {key}: {len(value)} bytes")
-        
-        # Check cookies
-        if request.cookies:
-            cookie_size = sum(len(k) + len(v) for k, v in request.cookies.items())
-            logger.info(f"Cookie size: {cookie_size} bytes")
-            logger.info(f"Number of cookies: {len(request.cookies)}")
-    except Exception as e:
-        logger.error(f"Error in debug_headers: {e}")
+    # Disable header debugging to prevent debug logs from consuming memory
+    pass
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['DEBUG'] = DEBUG
 
