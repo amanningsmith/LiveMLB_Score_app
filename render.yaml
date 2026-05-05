@@ -2,12 +2,9 @@ services:
   - type: web
     name: livemlb-score-app
     runtime: python
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn --config gunicorn_config.py app:app  # Changed this line
     envVars:
-      - key: SECRET_KEY
-        generateValue: true
       - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: GUNICORN_CMD_ARGS
-        value: "--limit-request-field_size=16384 --limit-request-fields=200"
+        value: 3.9.12
