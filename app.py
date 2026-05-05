@@ -1,10 +1,16 @@
 """Standalone Scores Flask app for Render deployment."""
 
+import logging
+import threading
+import time
+from datetime import datetime
+
 from flask import Flask, jsonify, render_template, request
 
 from config import DEBUG, SECRET_KEY
 from modules.logger import logger
 from modules import scores
+import statsapi
 
 app = Flask(__name__)
 logging.basicConfig(
@@ -12,6 +18,12 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Store scores in memory instead of making HTTP requests
+score_data = {
+    "games": [],
+    "last_update": None
+}
 
 @app.before_request
 def debug_headers():
@@ -37,14 +49,47 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['DEBUG'] = DEBUG
 
 
+def fetch_mlb_scores():
+    """Fetch scores directly from MLB API without HTTP request"""
+    try:
+        today = datetime.now().strftime('%m/%d/%Y')
+        games = statsapi.schedule(date=today)
+        
+        score_data["games"] = games
+        score_data["last_update"] = datetime.now()
+        
+        app.logger.info(f"Updated scores: {len(games)} games")
+    except Exception as e:
+        app.logger.error(f"Error fetching scores: {e}")
+
+
+def run_schedule():
+    """Background thread to update scores every 30 seconds"""
+    while True:
+        fetch_mlb_scores()  # Direct function call - no HTTP overhead
+        time.sleep(30)
+
+
+@app.before_first_request
+def start_background_tasks():
+    fetch_mlb_scores()  # Initial fetch on startup
+    scheduler_thread = threading.Thread(target=run_schedule, daemon=True)
+    scheduler_thread.start()
+    app.logger.info("Background score updater started")
+
+
 @app.route('/')
 def home():
     return render_template('scores.html', default_date=scores.get_et_today_date_str())
 
 
 @app.route('/scores')
-def scores_dashboard():
-    return render_template('scores.html', default_date=scores.get_et_today_date_str())
+def scores_endpoint():
+    """Return cached scores from memory"""
+    return jsonify({
+        "games": score_data["games"],
+        "last_update": score_data["last_update"].isoformat() if score_data["last_update"] else None
+    })
 
 @app.route('/api/scores/ticker', methods=['GET'])
 def scores_ticker_api():
