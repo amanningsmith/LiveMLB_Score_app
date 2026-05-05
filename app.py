@@ -68,12 +68,15 @@ def run_schedule():
         time.sleep(30)
 
 
-@app.before_serving
 def start_background_tasks():
     fetch_mlb_scores()  # Initial fetch on startup
     scheduler_thread = threading.Thread(target=run_schedule, daemon=True)
     scheduler_thread.start()
     app.logger.info("Background score updater started")
+
+
+# Start background tasks on module load
+start_background_tasks()
 
 
 @app.route('/')
