@@ -20,6 +20,13 @@ def home():
 def scores_dashboard():
     return render_template('scores.html', default_date=scores.get_et_today_date_str())
 
+@app.before_request
+def log_request_info():
+    total_size = sum(len(k) + len(v) for k, v in request.headers.items())
+    app.logger.info(f"Total header size: {total_size} bytes")
+    if total_size > 8000:
+        for key, value in request.headers.items():
+            app.logger.info(f"{key}: {len(value)} bytes")
 
 @app.route('/api/scores/ticker', methods=['GET'])
 def scores_ticker_api():
