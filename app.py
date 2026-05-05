@@ -10,7 +10,6 @@ from flask import Flask, jsonify, render_template, request
 from config import DEBUG, SECRET_KEY
 from modules.logger import logger
 from modules import scores
-import statsapi
 
 app = Flask(__name__)
 logging.basicConfig(
@@ -50,15 +49,14 @@ app.config['DEBUG'] = DEBUG
 
 
 def fetch_mlb_scores():
-    """Fetch scores directly from MLB API without HTTP request"""
+    """Fetch scores directly from scores module without HTTP request"""
     try:
-        today = datetime.now().strftime('%m/%d/%Y')
-        games = statsapi.schedule(date=today)
+        payload = scores.get_ticker_payload()
         
-        score_data["games"] = games
+        score_data["games"] = payload.get("games", [])
         score_data["last_update"] = datetime.now()
         
-        app.logger.info(f"Updated scores: {len(games)} games")
+        app.logger.info(f"Updated scores: {len(score_data['games'])} games")
     except Exception as e:
         app.logger.error(f"Error fetching scores: {e}")
 
